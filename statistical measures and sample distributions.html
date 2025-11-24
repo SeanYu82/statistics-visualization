@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>통계량과 표본분포 시뮬레이션</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f4f7f6;
+        }
+        h1, h2 { color: #2c3e50; }
+        .container {
+            background-color: #fff;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        .concept-box {
+            background-color: #e8f4fd;
+            border-left: 5px solid #3498db;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .highlight { color: #e74c3c; font-weight: bold; }
+        
+        /* 시뮬레이션 영역 스타일 */
+        .sim-area { display: flex; flex-wrap: wrap; gap: 20px; justify-content: space-between; }
+        .sim-box {
+            border: 2px solid #bdc3c7;
+            border-radius: 8px;
+            padding: 15px;
+            flex: 1 1 40%;
+            min-width: 300px;
+            background: #fafafa;
+        }
+        .sim-box h3 { margin-top: 0; text-align: center; color: #7f8c8d; }
+        
+        #population-viz, #sample-viz {
+            height: 150px;
+            overflow-y: auto;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            align-content: flex-start;
+            padding: 10px;
+            background: #fff;
+            border: 1px solid #eee;
+        }
+        .data-point {
+            width: 25px; height: 25px;
+            background-color: #bdc3c7; color: white;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 10px; transition: all 0.3s;
+        }
+        .data-point.sampled { background-color: #e74c3c; transform: scale(1.2); z-index: 10;}
+        .data-point.in-sample-box { background-color: #3498db; }
+
+        .controls { text-align: center; margin: 20px 0; }
+        button {
+            padding: 12px 24px; margin: 5px;
+            font-size: 16px; cursor: pointer;
+            background-color: #3498db; color: white;
+            border: none; border-radius: 5px;
+            transition: background-color 0.2s;
+        }
+        button:hover { background-color: #2980b9; }
+        button.secondary { background-color: #95a5a6; }
+        button.secondary:hover { background-color: #7f8c8d; }
+        
+        #current-stats {
+            text-align: center; font-size: 1.2em; margin: 15px 0;
+            padding: 15px; background: #ecf0f1; border-radius: 8px;
+        }
+        .stat-value { font-weight: bold; color: #3498db; font-size: 1.4em;}
+
+        /* 차트 영역 */
+        #chart-container { height: 350px; position: relative; }
+    </style>
+</head>
+<body>
+
+    <h1>통계량과 표본분포의 이해</h1>
+
+    <div class="container">
+        <div class="concept-box">
+            <strong>핵심 개념:</strong> 표본평균, 표본분산 등은 <strong>통계량</strong>입니다. 
+            같은 모집단에서 표본을 뽑더라도, 어떤 표본이 뽑히느냐에 따라 이 값은 매번 달라집니다. 
+            따라서 <strong>표본평균은 그 자체가 고유의 확률분포를 가지는 '확률변수'</strong>입니다.
+        </div>
+        <p>아래 시뮬레이션을 통해 이 개념을 직접 눈으로 확인해보세요.</p>
+    </div>
+
+    <div class="container">
+        <h2>1단계: 모집단과 표본 추출</h2>
+        <p>설정: 0부터 100까지의 숫자가 균등하게 섞인 <strong>모집단(N=500)</strong>에서 <strong>크기가 10인 표본</strong>을 무작위로 추출합니다.</p>
+        
+        <div class="sim-area">
+            <div class="sim-box">
+                <h3>모집단 (Population)</h3>
+                <div id="population-viz"></div>
+                <p>모수 (실제 평균) μ = <span id="pop-mean">50.0</span></p>
+            </div>
+            <div class="sim-box" style="border-color: #3498db;">
+                <h3>현재 추출된 표본 (Current Sample, n=10)</h3>
+                <div id="sample-viz"></div>
+            </div>
+        </div>
+
+        <div id="current-stats">
+            현재 표본의 평균 (통계량 x̄): <span id="sample-mean-val" class="stat-value">-</span>
+            <br>
+            <small>(버튼을 누를 때마다 이 값이 변하는 것에 주목하세요!)</small>
+        </div>
+
+        <div class="controls">
+            <button id="btn-sample-one">👉 표본 1개 추출하기</button>
+            <p>위 버튼을 여러 번 클릭하며 표본평균 값이 계속 변하는 것을 확인하세요.</p>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>2단계: 표본평균의 분포 (표본분포)</h2>
+        <p>
+            위에서 계산한 <strong>"표본평균(x̄)"들을 계속 모아서 히스토그램</strong>을 그립니다.
+            <br>처음에는 불규칙해 보이지만, 데이터가 쌓일수록 종 모양의 아름다운 분포(정규분포 형태)가 나타납니다.
+            <br>이것이 바로 <span class="highlight">"표본평균은 확률분포를 갖는 확률변수다"</span>라는 의미입니다.
+        </p>
+        
+        <div class="controls">
+            <button id="btn-sample-many" class="secondary">🚀 표본 100개 빠르게 추출 및 기록</button>
+            <button id="btn-reset" style="background-color: #e74c3c;">초기화</button>
+            <p>현재까지 수집된 표본평균의 개수: <span id="samples-count">0</span>개</p>
+        </div>
+
+        <div id="chart-container">
+             <canvas id="samplingDistributionChart"></canvas>
+        </div>
+    </div>
+
+    <script>
+        // --- 설정 변수 ---
+        const POPULATION_SIZE = 500;
+        const SAMPLE_SIZE = 10;
+        const MAX_VALUE = 100; // 모집단 데이터 범위 (0 ~ 100)
+
+        // --- 상태 변수 ---
+        let populationData = [];
+        let collectedSampleMeans = []; // 추출된 표본평균들을 저장할 배열
+        let myChart; // Chart.js 인스턴스
+
+        // --- DOM 요소 참조 ---
+        const popViz = document.getElementById('population-viz');
+        const sampleViz = document.getElementById('sample-viz');
+        const sampleMeanValDisplay = document.getElementById('sample-mean-val');
+        const popMeanDisplay = document.getElementById('pop-mean');
+        const samplesCountDisplay = document.getElementById('samples-count');
+        const btnSampleOne = document.getElementById('btn-sample-one');
+        const btnSampleMany = document.getElementById('btn-sample-many');
+        const btnReset = document.getElementById('btn-reset');
+
+
+        // --- 초기화 함수 ---
+        function init() {
+            // 1. 모집단 데이터 생성 (0~100 사이의 균등 분포)
+            populationData = [];
+            for (let i = 0; i < POPULATION_SIZE; i++) {
+                populationData.push(Math.floor(Math.random() * (MAX_VALUE + 1)));
+            }
+
+            // 2. 모집단 시각화 그리기
+            popViz.innerHTML = '';
+            populationData.forEach((val, idx) => {
+                const el = document.createElement('div');
+                el.classList.add('data-point');
+                el.id = `pop-item-${idx}`;
+                el.textContent = val;
+                popViz.appendChild(el);
+            });
+
+            // 3. 모평균 계산 및 표시
+            const popMean = populationData.reduce((a, b) => a + b, 0) / POPULATION_SIZE;
+            popMeanDisplay.textContent = popMean.toFixed(2);
+
+            // 4. 차트 초기화
+            initChart();
+        }
+
+        // --- 핵심 기능: 표본 추출 및 통계량 계산 ---
+        function takeSampleAnimation() {
+            // 이전 강조 표시 제거
+            document.querySelectorAll('.data-point.sampled').forEach(el => el.classList.remove('sampled'));
+            sampleViz.innerHTML = '';
+
+            let currentSampleData = [];
+            let indices = [];
+
+            // 중복 없이 랜덤 인덱스 선택
+            while(indices.length < SAMPLE_SIZE){
+                let r = Math.floor(Math.random() * POPULATION_SIZE);
+                if(indices.indexOf(r) === -1) indices.push(r);
+            }
+
+            // 선택된 데이터 처리
+            indices.forEach(idx => {
+                const val = populationData[idx];
+                currentSampleData.push(val);
+
+                // 모집단 시각화에서 강조
+                const popEl = document.getElementById(`pop-item-${idx}`);
+                if(popEl) popEl.classList.add('sampled');
+
+                // 표본 시각화 영역에 추가
+                const sampleEl = document.createElement('div');
+                sampleEl.classList.add('data-point', 'in-sample-box');
+                sampleEl.textContent = val;
+                sampleViz.appendChild(sampleEl);
+            });
+
+            // 통계량(표본평균) 계산
+            const sampleMean = currentSampleData.reduce((a, b) => a + b, 0) / SAMPLE_SIZE;
+
+            // 결과 업데이트
+            updateResults(sampleMean);
+        }
+
+        // --- 결과 업데이트 및 차트 반영 ---
+        function updateResults(mean) {
+            // 1. 현재 표본평균 값 표시 업데이트
+            sampleMeanValDisplay.textContent = mean.toFixed(2);
+            
+            // 2. 데이터 수집 및 카운트 업데이트
+            collectedSampleMeans.push(mean);
+            samplesCountDisplay.textContent = collectedSampleMeans.length;
+
+            // 3. 차트 업데이트
+            updateChart();
+        }
+
+
+        // --- 다중 실행 (빠르게 100번) ---
+        function takeManySamples() {
+            let count = 0;
+            btnSampleMany.disabled = true;
+            btnSampleMany.textContent = "실행 중...";
+
+            const interval = setInterval(() => {
+                takeSampleAnimation();
+                count++;
+                if(count >= 100) {
+                    clearInterval(interval);
+                    btnSampleMany.disabled = false;
+                    btnSampleMany.textContent = "🚀 표본 100개 빠르게 추출 및 기록";
+                }
+            }, 30); // 0.03초마다 실행
+        }
+
+        // --- 차트 관련 함수 (Chart.js 사용) ---
+        function initChart() {
+            const ctx = document.getElementById('samplingDistributionChart').getContext('2d');
+            
+            // 초기 빈 데이터용 bin 생성
+            const bins = createHistogramBins([], MAX_VALUE);
+
+            myChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: bins.labels,
+                    datasets: [{
+                        label: '표본평균들의 빈도 (Frequency)',
+                        data: bins.data,
+                        backgroundColor: 'rgba(52, 152, 219, 0.6)',
+                        borderColor: 'rgba(52, 152, 219, 1)',
+                        borderWidth: 1,
+                        barPercentage: 1.0,
+                        categoryPercentage: 1.0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { beginAtZero: true, title: { display: true, text: '빈도수(Frequency)' } },
+                        x: { title: { display: true, text: '표본평균(x̄) 값의 구간' } }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        title: { display: true, text: '표본평균의 표본분포 (Sampling Distribution)' }
+                    }
+                }
+            });
+        }
+
+        function updateChart() {
+            // 수집된 데이터로 히스토그램 bin 다시 계산
+            const bins = createHistogramBins(collectedSampleMeans, MAX_VALUE);
+            
+            myChart.data.labels = bins.labels;
+            myChart.data.datasets[0].data = bins.data;
+            myChart.update('none'); // 애니메이션 없이 부드럽게 업데이트
+        }
+
+        // 히스토그램 데이터를 위한 도수분포표 생성 도우미 함수
+        function createHistogramBins(dataArray, maxVal) {
+            const binSize = 2; // 계급 구간 크기
+            const numBins = Math.ceil(maxVal / binSize);
+            const bins = new Array(numBins).fill(0);
+            const labels = [];
+
+            for (let i = 0; i < numBins; i++) {
+                const start = i * binSize;
+                const end = (i + 1) * binSize -1;
+                labels.push(`${start}~${end}`);
+            }
+
+            if(dataArray.length === 0) return { labels, data: bins };
+
+            dataArray.forEach(val => {
+                let binIndex = Math.floor(val / binSize);
+                // 범위 밖 데이터 처리 (안전장치)
+                if(binIndex >= numBins) binIndex = numBins - 1; 
+                if(binIndex < 0) binIndex = 0;
+                bins[binIndex]++;
+            });
+
+            return { labels, data: bins };
+        }
+
+        // --- 이벤트 리스너 연결 ---
+        btnSampleOne.addEventListener('click', takeSampleAnimation);
+        btnSampleMany.addEventListener('click', takeManySamples);
+        btnReset.addEventListener('click', () => {
+            collectedSampleMeans = [];
+            samplesCountDisplay.textContent = 0;
+            sampleMeanValDisplay.textContent = "-";
+            sampleViz.innerHTML = '';
+            document.querySelectorAll('.data-point.sampled').forEach(el => el.classList.remove('sampled'));
+            updateChart();
+        });
+
+        // --- 실행 시작 ---
+        init();
+
+    </script>
+</body>
+</html>
