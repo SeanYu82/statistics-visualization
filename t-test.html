@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>t-검정 (t-test) 시뮬레이터</title>
+    <style>
+        :root {
+            --primary: #6366f1;
+            --groupA: #3b82f6;
+            /* 파랑 */
+            --groupB: #f97316;
+            /* 주황 */
+            --bg: #f8fafc;
+            --text: #1e293b;
+            --card-bg: #ffffff;
+            --danger: #ef4444;
+            --success: #10b981;
+        }
+
+        body {
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+            line-height: 1.6;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        h2 {
+            border-bottom: 2px solid var(--primary);
+            padding-bottom: 10px;
+            margin-top: 0;
+            color: var(--primary);
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 25px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        canvas {
+            width: 100%;
+            height: 250px;
+            background: #f1f5f9;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+
+        .controls {
+            display: flex;
+            gap: 20px;
+            background: #f1f5f9;
+            padding: 20px;
+            border-radius: 8px;
+            flex-wrap: wrap;
+            justify-content: space-around;
+        }
+
+        .control-group {
+            flex: 1;
+            min-width: 200px;
+            text-align: center;
+        }
+
+        .control-group label {
+            font-weight: bold;
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .control-group input[type=range] {
+            width: 80%;
+            cursor: pointer;
+        }
+
+        .val-display {
+            font-weight: bold;
+            color: var(--primary);
+        }
+
+        .btn-action {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1.1rem;
+            font-weight: bold;
+            transition: background 0.2s;
+            display: block;
+            margin: 20px auto;
+        }
+
+        .btn-action:hover {
+            background: #4f46e5;
+        }
+
+        .result-box {
+            background: #e0e7ff;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .result-summary {
+            font-size: 1.3rem;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+
+        .stat-grid {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 15px;
+        }
+
+        .stat-item {
+            font-size: 0.9rem;
+        }
+
+        .stat-val {
+            font-size: 1.2rem;
+            font-weight: bold;
+        }
+
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-bottom: 10px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+        }
+
+        .color-box {
+            width: 15px;
+            height: 15px;
+            margin-right: 5px;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <h1>⚖️ 독립 표본 t-검정 시뮬레이터</h1>
+        <p style="text-align: center; color: #64748b;">두 집단(A, B)의 평균 차이가 통계적으로 유의미한지 검증합니다.</p>
+
+        <section class="card">
+            <h2>1단계: 모집단(현실) 설정</h2>
+            <p>실제 두 그룹의 분포를 설정합니다. 평균 차이를 크게 만들거나 표준편차를 줄이면 두 그룹이 확연히 달라 보입니다.</p>
+
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="color-box" style="background: var(--groupA);"></div>그룹 A 모집단
+                </div>
+                <div class="legend-item">
+                    <div class="color-box" style="background: var(--groupB);"></div>그룹 B 모집단
+                </div>
+            </div>
+            <canvas id="popCanvas"></canvas>
+
+            <div class="controls">
+                <div class="control-group" style="color: var(--groupA);">
+                    <label>그룹 A 평균 (μA): <span id="val-muA" class="val-display">100</span></label>
+                    <input type="range" id="range-muA" min="80" max="120" step="1" value="100">
+                </div>
+                <div class="control-group" style="color: var(--groupB);">
+                    <label>그룹 B 평균 (μB): <span id="val-muB" class="val-display">105</span></label>
+                    <input type="range" id="range-muB" min="80" max="120" step="1" value="105">
+                </div>
+                <div class="control-group">
+                    <label>공통 표준편차 (σ): <span id="val-sigma" class="val-display">10</span></label>
+                    <input type="range" id="range-sigma" min="2" max="20" step="1" value="10">
+                </div>
+            </div>
+        </section>
+
+        <section class="card">
+            <h2>2단계: 표본 추출 및 t-검정 실행</h2>
+            <p>위에서 설정한 모집단에서 각각 표본(N=30)을 추출하여 t-값을 계산합니다.</p>
+            <button class="btn-action" onclick="runTTest()">👉 표본 추출 및 t-검정 실행</button>
+
+            <canvas id="sampleCanvas" style="height: 150px;"></canvas>
+            <p style="text-align: center; font-size: 0.9rem; color: #64748b;">▲ 추출된 표본 데이터 분포 (작은 점들)와 표본 평균 (큰 원)</p>
+
+            <div class="result-box" id="resultArea" style="display: none;">
+                <div class="result-summary" id="finalConclusion">결과 대기 중...</div>
+                <div class="stat-grid">
+                    <div class="stat-item">그룹 A 표본평균<br><span class="stat-val" style="color: var(--groupA);"
+                            id="res-meanA">0</span></div>
+                    <div class="stat-item">그룹 B 표본평균<br><span class="stat-val" style="color: var(--groupB);"
+                            id="res-meanB">0</span></div>
+                    <div class="stat-item">t-값 (검정통계량)<br><span class="stat-val" id="res-tval">0</span></div>
+                    <div class="stat-item">p-값 (유의확률)<br><span class="stat-val" id="res-pval">0</span></div>
+                </div>
+            </div>
+        </section>
+
+        <section class="card">
+            <h2>3단계: t-분포 상의 결과 확인</h2>
+            <p>
+                귀무가설(두 그룹 평균이 같다)이 참일 때 예상되는 <strong>t-분포</strong>입니다.
+                우리가 계산한 t-값이 양쪽 끝 <strong>기각역 (붉은색 영역, 유의수준 0.05 기준)</strong>에 속하면 유의미한 차이로 판단합니다.
+            </p>
+            <canvas id="tDistCanvas"></canvas>
+        </section>
+    </div>
+
+    <script>
+        // --- 유틸리티 함수 ---
+        // 정규분포 확률밀도함수
+        function gaussian(x, mu, sigma) {
+            return (1 / (sigma * Math.sqrt(2 * Math.PI))) * Math.exp(-0.5 * Math.pow((x - mu) / sigma, 2));
+        }
+
+        // 정규분포 랜덤 샘플 생성 (Box-Muller transform)
+        function randomNormal(mu, sigma) {
+            let u = 0, v = 0;
+            while (u === 0) u = Math.random();
+            while (v === 0) v = Math.random();
+            let z = Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+            return z * sigma + mu;
+        }
+
+        // 표준정규분포 CDF 근사 (p-value 계산용, N>30일 때 t-분포와 유사)
+        function standardNormalCDF(x) {
+            const t = 1 / (1 + 0.2316419 * Math.abs(x));
+            const d = 0.3989423 * Math.exp(-x * x / 2);
+            let prob = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
+            if (x > 0) prob = 1 - prob;
+            return prob;
+        }
+
+        // 상태 변수
+        let muA = 100, muB = 105, sigma = 10;
+        const N = 30; // 각 그룹 표본 크기 고정
+        let currentTValue = 0;
+        let currentPValue = 0;
+
+        // DOM 요소
+        const rangeMuA = document.getElementById('range-muA');
+        const rangeMuB = document.getElementById('range-muB');
+        const rangeSigma = document.getElementById('range-sigma');
+        const valMuA = document.getElementById('val-muA');
+        const valMuB = document.getElementById('val-muB');
+        const valSigma = document.getElementById('val-sigma');
+
+        const popCvs = document.getElementById('popCanvas');
+        const sampleCvs = document.getElementById('sampleCanvas');
+        const tDistCvs = document.getElementById('tDistCanvas');
+        const popCtx = popCvs.getContext('2d');
+        const sampleCtx = sampleCvs.getContext('2d');
+        const tDistCtx = tDistCvs.getContext('2d');
+
+        // --- 1. 모집단 그리기 ---
+        function drawPopulations() {
+            muA = parseFloat(rangeMuA.value);
+            muB = parseFloat(rangeMuB.value);
+            sigma = parseFloat(rangeSigma.value);
+            valMuA.innerText = muA; valMuB.innerText = muB; valSigma.innerText = sigma;
+
+            popCvs.width = popCvs.offsetWidth; popCvs.height = popCvs.offsetHeight;
+            const w = popCvs.width, h = popCvs.height;
+            popCtx.clearRect(0, 0, w, h);
+
+            // X축 범위 설정 (평균 중심으로 충분히 넓게)
+            const minX = Math.min(muA, muB) - 4 * sigma;
+            const maxX = Math.max(muA, muB) + 4 * sigma;
+            const rangeX = maxX - minX;
+            const mapX = (val) => (val - minX) / rangeX * w;
+            // Y축 스케일 (가장 높은 봉우리 기준)
+            const maxY = gaussian(muA, muA, sigma) * 1.2;
+            const mapY = (val) => h - (val / maxY * h) - 20;
+
+            // 그룹 A 그리기 (파랑)
+            popCtx.beginPath(); popCtx.strokeStyle = '#3b82f6'; popCtx.lineWidth = 3;
+            for (let px = 0; px <= w; px += 2) {
+                let xVal = minX + (px / w) * rangeX;
+                let yVal = gaussian(xVal, muA, sigma);
+                if (px === 0) popCtx.moveTo(px, mapY(yVal)); else popCtx.lineTo(px, mapY(yVal));
+            }
+            popCtx.stroke();
+
+            // 그룹 B 그리기 (주황)
+            popCtx.beginPath(); popCtx.strokeStyle = '#f97316'; popCtx.lineWidth = 3;
+            for (let px = 0; px <= w; px += 2) {
+                let xVal = minX + (px / w) * rangeX;
+                let yVal = gaussian(xVal, muB, sigma);
+                if (px === 0) popCtx.moveTo(px, mapY(yVal)); else popCtx.lineTo(px, mapY(yVal));
+            }
+            popCtx.stroke();
+
+            // 바닥선
+            popCtx.beginPath(); popCtx.moveTo(0, h - 20); popCtx.lineTo(w, h - 20); popCtx.strokeStyle = '#ccc'; popCtx.lineWidth = 1; popCtx.stroke();
+        }
+
+        rangeMuA.addEventListener('input', drawPopulations);
+        rangeMuB.addEventListener('input', drawPopulations);
+        rangeSigma.addEventListener('input', drawPopulations);
+
+        // --- 2. t-검정 실행 및 샘플 시각화 ---
+        function runTTest() {
+            // 1) 샘플링
+            let sampleA = [], sampleB = [];
+            for (let i = 0; i < N; i++) {
+                sampleA.push(randomNormal(muA, sigma));
+                sampleB.push(randomNormal(muB, sigma));
+            }
+
+            // 2) 통계량 계산
+            const mean = arr => arr.reduce((a, b) => a + b, 0) / arr.length;
+            const variance = (arr, m) => arr.reduce((a, b) => a + Math.pow(b - m, 2), 0) / (arr.length - 1);
+
+            let mAs = mean(sampleA), mBs = mean(sampleB);
+            let vAs = variance(sampleA, mAs), vBs = variance(sampleB, mBs);
+
+            // 합동 분산 (Pooled Variance, 두 그룹 N이 같을 때)
+            let pooledVariance = (vAs + vBs) / 2;
+            // 표준 오차 (Standard Error)
+            let se = Math.sqrt(pooledVariance * (2 / N));
+
+            // t-값 계산
+            let tValue = (mAs - mBs) / se;
+            currentTValue = tValue;
+
+            // p-값 계산 (양측검정, N이 충분히 크므로 정규분포 근사 사용)
+            // 실제로는 자유도(df = 2N-2)인 t-분포를 써야 하나, 시뮬레이션 목적상 근사치 사용
+            let pValue = 2 * (1 - standardNormalCDF(Math.abs(tValue)));
+            currentPValue = pValue;
+
+            // 3) 결과 업데이트
+            document.getElementById('resultArea').style.display = 'block';
+            document.getElementById('res-meanA').innerText = mAs.toFixed(2);
+            document.getElementById('res-meanB').innerText = mBs.toFixed(2);
+            document.getElementById('res-tval').innerText = tValue.toFixed(3);
+            let pTxt = pValue < 0.001 ? "< 0.001" : pValue.toFixed(3);
+            document.getElementById('res-pval').innerText = pTxt;
+
+            const conclusion = document.getElementById('finalConclusion');
+            if (pValue < 0.05) {
+                conclusion.innerHTML = "<span style='color: var(--danger)'>결과: 유의미한 차이가 있습니다! (p < 0.05)</span>";
+                conclusion.style.background = "#fee2e2";
+            } else {
+                conclusion.innerHTML = "<span style='color: var(--text)'>결과: 유의미한 차이가 없습니다. (p >= 0.05)</span>";
+                conclusion.style.background = "#e2e8f0";
+            }
+
+            drawSamples(sampleA, sampleB, mAs, mBs);
+            drawTDistribution(tValue);
+        }
+
+        function drawSamples(sA, sB, mA, mB) {
+            sampleCvs.width = sampleCvs.offsetWidth; sampleCvs.height = sampleCvs.offsetHeight;
+            const w = sampleCvs.width, h = sampleCvs.height;
+            sampleCtx.clearRect(0, 0, w, h);
+
+            // X축 범위 (모집단 그래프와 동일하게 맞춤)
+            const minX = Math.min(muA, muB) - 4 * sigma;
+            const maxX = Math.max(muA, muB) + 4 * sigma;
+            const rangeX = maxX - minX;
+            const mapX = (val) => (val - minX) / rangeX * w;
+
+            // 중앙선
+            sampleCtx.beginPath(); sampleCtx.moveTo(0, h / 2); sampleCtx.lineTo(w, h / 2); sampleCtx.strokeStyle = '#ddd'; sampleCtx.stroke();
+
+            // 샘플 점 그리기
+            sA.forEach(val => {
+                sampleCtx.beginPath(); sampleCtx.fillStyle = 'rgba(59, 130, 246, 0.5)';
+                sampleCtx.arc(mapX(val), h / 2 - 20 + (Math.random() * 20 - 10), 4, 0, Math.PI * 2); sampleCtx.fill();
+            });
+            sB.forEach(val => {
+                sampleCtx.beginPath(); sampleCtx.fillStyle = 'rgba(249, 115, 22, 0.5)';
+                sampleCtx.arc(mapX(val), h / 2 + 20 + (Math.random() * 20 - 10), 4, 0, Math.PI * 2); sampleCtx.fill();
+            });
+
+            // 표본 평균 표시
+            sampleCtx.beginPath(); sampleCtx.fillStyle = 'var(--groupA)';
+            sampleCtx.arc(mapX(mA), h / 2 - 20, 8, 0, Math.PI * 2); sampleCtx.fill();
+            sampleCtx.beginPath(); sampleCtx.fillStyle = 'var(--groupB)';
+            sampleCtx.arc(mapX(mB), h / 2 + 20, 8, 0, Math.PI * 2); sampleCtx.fill();
+        }
+
+
+        // --- 3. t-분포 시각화 ---
+        function drawTDistribution(tVal) {
+            tDistCvs.width = tDistCvs.offsetWidth; tDistCvs.height = tDistCvs.offsetHeight;
+            const w = tDistCvs.width, h = tDistCvs.height;
+            tDistCtx.clearRect(0, 0, w, h);
+
+            // X축 설정 (표준화된 축, -4 ~ +4)
+            const mapX = (val) => (val + 4) / 8 * w;
+            const mapY = (val) => h - (val / 0.45 * h) - 30;
+
+            // 1. 기각역 채우기 (유의수준 0.05 기준, 양측 약 +/- 1.96 이상)
+            const criticalVal = 1.96;
+            tDistCtx.fillStyle = 'rgba(239, 68, 68, 0.3)'; // 붉은색 반투명
+
+            // 왼쪽 기각역
+            tDistCtx.beginPath(); tDistCtx.moveTo(mapX(-4), h - 30);
+            for (let x = -4; x <= -criticalVal; x += 0.1) tDistCtx.lineTo(mapX(x), mapY(gaussian(x, 0, 1)));
+            tDistCtx.lineTo(mapX(-criticalVal), h - 30); tDistCtx.fill();
+
+            // 오른쪽 기각역
+            tDistCtx.beginPath(); tDistCtx.moveTo(mapX(criticalVal), h - 30);
+            for (let x = criticalVal; x <= 4.1; x += 0.1) tDistCtx.lineTo(mapX(x), mapY(gaussian(x, 0, 1)));
+            tDistCtx.lineTo(mapX(4), h - 30); tDistCtx.fill();
+
+            // 2. t-분포 곡선 그리기 (여기선 표준정규분포로 근사 표현)
+            tDistCtx.beginPath(); tDistCtx.strokeStyle = '#333'; tDistCtx.lineWidth = 2;
+            for (let x = -4; x <= 4; x += 0.1) {
+                let y = gaussian(x, 0, 1);
+                if (x === -4) tDistCtx.moveTo(mapX(x), mapY(y)); else tDistCtx.lineTo(mapX(x), mapY(y));
+            }
+            tDistCtx.stroke();
+
+            // 3. 계산된 t-값 위치 표시
+            let tX = mapX(tVal);
+            tDistCtx.beginPath(); tDistCtx.moveTo(tX, 0); tDistCtx.lineTo(tX, h - 30);
+            tDistCtx.strokeStyle = 'var(--primary)'; tDistCtx.lineWidth = 3; tDistCtx.setLineDash([5, 5]); tDistCtx.stroke(); tDistCtx.setLineDash([]);
+
+            // 텍스트 표시
+            tDistCtx.fillStyle = 'var(--primary)'; tDistCtx.textAlign = 'center'; tDistCtx.font = 'bold 14px sans-serif';
+            tDistCtx.fillText(`내 t-값: ${tVal.toFixed(2)}`, tX, 20);
+
+            tDistCtx.fillStyle = '#ef4444';
+            tDistCtx.fillText('기각역 (p<0.025)', mapX(-3), h - 10);
+            tDistCtx.fillText('기각역 (p<0.025)', mapX(3), h - 10);
+            tDistCtx.fillStyle = '#333';
+            tDistCtx.fillText('채택역 (차이 없음)', mapX(0), h - 10);
+
+            // 바닥선
+            tDistCtx.beginPath(); tDistCtx.moveTo(0, h - 30); tDistCtx.lineTo(w, h - 30); tDistCtx.strokeStyle = '#333'; tDistCtx.lineWidth = 1; tDistCtx.stroke();
+        }
+
+        // 초기 실행
+        drawPopulations();
+        // 초기화 시 빈 그래프 표시
+        tDistCvs.width = tDistCvs.offsetWidth; tDistCvs.height = tDistCvs.offsetHeight;
+        tDistCtx.font = "16px sans-serif"; tDistCtx.fillStyle = "#aaa"; tDistCtx.textAlign = "center";
+        tDistCtx.fillText("검정을 실행하면 결과가 여기에 표시됩니다.", tDistCvs.width / 2, tDistCvs.height / 2);
+
+        window.addEventListener('resize', () => {
+            drawPopulations();
+            if (currentTValue !== 0) {
+                // 리사이즈 시 결과가 있으면 다시 그림 (샘플 데이터는 유지되지 않음 - 단순화)
+                drawTDistribution(currentTValue);
+            }
+        });
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>연속형 확률변수와 정규분포</title>
+    <style>
+        :root {
+            --primary: #3b82f6;
+            --secondary: #10b981;
+            --bg: #f8fafc;
+            --text: #1e293b;
+            --card-bg: #ffffff;
+        }
+
+        body {
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+            line-height: 1.6;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            color: var(--text);
+            margin-bottom: 40px;
+        }
+
+        h2 {
+            font-size: 1.5rem;
+            border-bottom: 2px solid var(--primary);
+            padding-bottom: 10px;
+            margin-top: 0;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        canvas {
+            width: 100%;
+            height: 300px;
+            background: #f1f5f9;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+
+        .controls {
+            display: flex;
+            gap: 20px;
+            background: #f1f5f9;
+            padding: 15px;
+            border-radius: 8px;
+            flex-wrap: wrap;
+        }
+
+        .control-group {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        label {
+            font-weight: bold;
+            font-size: 0.9rem;
+            margin-bottom: 5px;
+        }
+
+        input[type=range] {
+            width: 100%;
+            cursor: pointer;
+        }
+
+        .desc {
+            font-size: 0.95rem;
+            color: #475569;
+            margin-bottom: 15px;
+        }
+
+        .highlight {
+            color: var(--primary);
+            font-weight: bold;
+        }
+
+        button {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background: #2563eb;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <h1>📊 움직이는 정규분포와 확률변수</h1>
+
+        <section class="card">
+            <h2>1. 이산형에서 연속형으로의 진화</h2>
+            <p class="desc">
+                주사위 눈금 같은 <strong>이산형 확률변수</strong>의 간격이 점점 좁아지면, 결국 매끄러운 <strong>연속형 확률변수(정규분포 곡선)</strong>가 됩니다.
+            </p>
+            <canvas id="canvas1"></canvas>
+            <div style="text-align: center;">
+                <button onclick="restartEvolution()">애니메이션 다시보기</button>
+            </div>
+        </section>
+
+        <section class="card">
+            <h2>2. 정규분포의 모양 결정 (평균과 분산)</h2>
+            <p class="desc">
+                정규분포는 <span class="highlight">평균(μ)</span>과 <span class="highlight">표준편차(σ)</span>만으로 결정됩니다. 아래 슬라이더를
+                움직여 보세요.
+            </p>
+            <canvas id="canvas2"></canvas>
+            <div class="controls">
+                <div class="control-group">
+                    <label>평균 (μ): <span id="val-mu">0</span></label>
+                    <input type="range" id="range-mu" min="-3" max="3" step="0.1" value="0">
+                </div>
+                <div class="control-group">
+                    <label>표준편차 (σ): <span id="val-sigma">1.0</span></label>
+                    <input type="range" id="range-sigma" min="0.5" max="2.0" step="0.1" value="1.0">
+                </div>
+            </div>
+        </section>
+
+        <section class="card">
+            <h2>3. 확률 계산: 선이 아닌 면적</h2>
+            <p class="desc">
+                특정 값 하나(선)의 확률은 0입니다. 확률은 <strong>면적(적분값)</strong>으로 계산합니다. 구간을 조절하여 확률(파란색 영역)을 확인하세요.
+            </p>
+            <canvas id="canvas3"></canvas>
+            <div class="controls">
+                <div class="control-group">
+                    <label>시작점 (a): <span id="val-a">-1.0</span></label>
+                    <input type="range" id="range-a" min="-3" max="3" step="0.1" value="-1.0">
+                </div>
+                <div class="control-group">
+                    <label>끝점 (b): <span id="val-b">1.0</span></label>
+                    <input type="range" id="range-b" min="-3" max="3" step="0.1" value="1.0">
+                </div>
+            </div>
+            <p style="text-align: center; font-weight: bold;">
+                확률 P(a ≤ X ≤ b) ≈ <span id="prob-result" class="highlight">0.0%</span>
+            </p>
+        </section>
+
+        <section class="card">
+            <h2>4. 중심극한정리 시뮬레이션</h2>
+            <p class="desc">
+                무작위 데이터를 계속 뽑아서 평균을 내면, 데이터의 원래 모양과 상관없이 <strong>정규분포 모양</strong>으로 쌓이게 됩니다.
+            </p>
+            <canvas id="canvas4"></canvas>
+            <div style="text-align: center;">
+                <button id="btn-clt" onclick="toggleCLT()">데이터 수집 시작</button>
+                <button onclick="resetCLT()" style="background: #64748b; margin-left: 10px;">리셋</button>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        // --- 공통 함수: 정규분포 공식 (Gaussian Function) ---
+        function gaussian(x, mu, sigma) {
+            return (1 / (sigma * Math.sqrt(2 * Math.PI))) * Math.exp(-0.5 * Math.pow((x - mu) / sigma, 2));
+        }
+
+        // --- Canvas 1: Evolution Animation ---
+        const cvs1 = document.getElementById('canvas1');
+        const ctx1 = cvs1.getContext('2d');
+        let evolFrame = 0;
+        let evolReq;
+
+        function drawEvolution() {
+            cvs1.width = cvs1.offsetWidth;
+            cvs1.height = cvs1.offsetHeight;
+            const w = cvs1.width;
+            const h = cvs1.height;
+
+            // 애니메이션 진행도 (0 ~ 1)
+            let progress = (evolFrame % 300) / 300;
+            // 막대 개수: 5개에서 100개로 증가
+            let bars = 5 + Math.floor(progress * 95);
+
+            ctx1.clearRect(0, 0, w, h);
+
+            // 좌표 변환
+            const mapX = (val) => (val + 3) / 6 * w;
+            const mapY = (val) => h - (val * h * 0.8) - 20;
+
+            // 막대 그리기
+            const barWidth = w / bars;
+            ctx1.fillStyle = '#93c5fd';
+            ctx1.strokeStyle = 'white';
+
+            for (let i = 0; i < bars; i++) {
+                let xVal = -3 + (i / bars) * 6;
+                let yVal = gaussian(xVal, 0, 1);
+
+                let px = mapX(xVal);
+                let py = mapY(yVal);
+                let pHeight = h - py - 20;
+
+                ctx1.fillRect(px, py, barWidth + 1, pHeight);
+                ctx1.strokeRect(px, py, barWidth + 1, pHeight);
+            }
+
+            // 목표 곡선 (반투명)
+            ctx1.beginPath();
+            ctx1.strokeStyle = '#2563eb';
+            ctx1.lineWidth = 3;
+            for (let x = 0; x <= w; x += 5) {
+                let logicX = (x / w) * 6 - 3;
+                let logicY = gaussian(logicX, 0, 1);
+                if (x === 0) ctx1.moveTo(x, mapY(logicY));
+                else ctx1.lineTo(x, mapY(logicY));
+            }
+            ctx1.stroke();
+
+            // 텍스트
+            ctx1.fillStyle = '#1e293b';
+            ctx1.font = '16px sans-serif';
+            ctx1.fillText(`막대 개수: ${bars}`, 20, 30);
+            if (bars > 90) ctx1.fillText("거의 완벽한 곡선입니다!", 20, 55);
+
+            evolFrame++;
+            evolReq = requestAnimationFrame(drawEvolution);
+        }
+
+        function restartEvolution() {
+            evolFrame = 0;
+        }
+        drawEvolution();
+
+
+        // --- Canvas 2: Interactive Mean & Sigma ---
+        const cvs2 = document.getElementById('canvas2');
+        const ctx2 = cvs2.getContext('2d');
+        const rMu = document.getElementById('range-mu');
+        const rSigma = document.getElementById('range-sigma');
+        const vMu = document.getElementById('val-mu');
+        const vSigma = document.getElementById('val-sigma');
+
+        function drawInteractive() {
+            cvs2.width = cvs2.offsetWidth;
+            cvs2.height = cvs2.offsetHeight;
+            const w = cvs2.width;
+            const h = cvs2.height;
+            const mu = parseFloat(rMu.value);
+            const sigma = parseFloat(rSigma.value);
+
+            vMu.textContent = mu.toFixed(1);
+            vSigma.textContent = sigma.toFixed(1);
+
+            ctx2.clearRect(0, 0, w, h);
+
+            // 좌표 변환 (X축: -5 ~ 5)
+            const mapX = (val) => (val + 5) / 10 * w;
+            const mapY = (val) => h - (val * h * 0.8) - 20;
+
+            // 기준선 (X축)
+            ctx2.beginPath();
+            ctx2.moveTo(0, h - 20);
+            ctx2.lineTo(w, h - 20);
+            ctx2.strokeStyle = '#ccc';
+            ctx2.stroke();
+
+            // 중심선 (평균)
+            let centerX = mapX(mu);
+            ctx2.beginPath();
+            ctx2.setLineDash([5, 5]);
+            ctx2.moveTo(centerX, 20);
+            ctx2.lineTo(centerX, h - 20);
+            ctx2.strokeStyle = '#94a3b8';
+            ctx2.stroke();
+            ctx2.setLineDash([]);
+
+            // 정규분포 곡선 그리기
+            ctx2.beginPath();
+            ctx2.strokeStyle = '#dc2626';
+            ctx2.lineWidth = 3;
+            for (let px = 0; px <= w; px++) {
+                let logicX = (px / w) * 10 - 5;
+                let logicY = gaussian(logicX, mu, sigma);
+                if (px === 0) ctx2.moveTo(px, mapY(logicY));
+                else ctx2.lineTo(px, mapY(logicY));
+            }
+            ctx2.stroke();
+        }
+
+        rMu.addEventListener('input', drawInteractive);
+        rSigma.addEventListener('input', drawInteractive);
+        // 초기 실행
+        setTimeout(drawInteractive, 100);
+
+
+        // --- Canvas 3: Area & Probability ---
+        const cvs3 = document.getElementById('canvas3');
+        const ctx3 = cvs3.getContext('2d');
+        const rA = document.getElementById('range-a');
+        const rB = document.getElementById('range-b');
+        const vA = document.getElementById('val-a');
+        const vB = document.getElementById('val-b');
+        const resProb = document.getElementById('prob-result');
+
+        // 오차함수 근사식을 이용한 누적분포함수(CDF) 계산
+        function cdf(x) {
+            const t = 1 / (1 + 0.2316419 * Math.abs(x));
+            const d = 0.3989423 * Math.exp(-x * x / 2);
+            let prob = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
+            if (x > 0) prob = 1 - prob;
+            return prob;
+        }
+
+        function drawArea() {
+            cvs3.width = cvs3.offsetWidth;
+            cvs3.height = cvs3.offsetHeight;
+            const w = cvs3.width;
+            const h = cvs3.height;
+
+            let a = parseFloat(rA.value);
+            let b = parseFloat(rB.value);
+            if (a > b) { // a가 b보다 크면 스왑
+                [a, b] = [b, a];
+            }
+
+            vA.textContent = a.toFixed(1);
+            vB.textContent = b.toFixed(1);
+
+            // 확률 계산 (표준정규분포 기준 N(0,1))
+            let probability = cdf(b) - cdf(a);
+            resProb.textContent = (probability * 100).toFixed(2) + "%";
+
+            ctx3.clearRect(0, 0, w, h);
+            const mapX = (val) => (val + 4) / 8 * w; // -4 ~ 4 범위
+            const mapY = (val) => h - (val * h * 0.8) - 20;
+
+            // 1. 전체 곡선 그리기
+            ctx3.beginPath();
+            ctx3.strokeStyle = '#333';
+            ctx3.lineWidth = 2;
+            for (let px = 0; px <= w; px++) {
+                let logicX = (px / w) * 8 - 4;
+                let logicY = gaussian(logicX, 0, 1);
+                if (px === 0) ctx3.moveTo(px, mapY(logicY));
+                else ctx3.lineTo(px, mapY(logicY));
+            }
+            ctx3.stroke();
+
+            // 2. 영역 채우기
+            ctx3.beginPath();
+            ctx3.fillStyle = 'rgba(59, 130, 246, 0.5)'; // 반투명 파랑
+
+            // a 지점 시작
+            let startPx = mapX(a);
+            ctx3.moveTo(startPx, h - 20);
+
+            // 곡선 따라가기
+            for (let px = startPx; px <= mapX(b); px++) {
+                let logicX = (px / w) * 8 - 4;
+                let logicY = gaussian(logicX, 0, 1);
+                ctx3.lineTo(px, mapY(logicY));
+            }
+
+            // b 지점에서 바닥으로
+            ctx3.lineTo(mapX(b), h - 20);
+            ctx3.closePath();
+            ctx3.fill();
+
+            // 3. 축 그리기
+            ctx3.beginPath();
+            ctx3.moveTo(0, h - 20);
+            ctx3.lineTo(w, h - 20);
+            ctx3.stroke();
+        }
+
+        rA.addEventListener('input', drawArea);
+        rB.addEventListener('input', drawArea);
+        setTimeout(drawArea, 100);
+
+
+        // --- Canvas 4: CLT Simulation ---
+        const cvs4 = document.getElementById('canvas4');
+        const ctx4 = cvs4.getContext('2d');
+        let cltData = new Array(50).fill(0); // -5 ~ 5 구간을 50개로 나눈 히스토그램
+        let cltTimer;
+        let isRunning = false;
+        let sampleCount = 0;
+
+        function drawCLT() {
+            cvs4.width = cvs4.offsetWidth;
+            cvs4.height = cvs4.offsetHeight;
+            const w = cvs4.width;
+            const h = cvs4.height;
+
+            ctx4.clearRect(0, 0, w, h);
+
+            const barW = w / cltData.length;
+            const maxVal = Math.max(...cltData, 1); // 0나누기 방지
+
+            // 막대 그리기
+            ctx4.fillStyle = '#10b981';
+            for (let i = 0; i < cltData.length; i++) {
+                let barH = (cltData[i] / maxVal) * (h * 0.8);
+                ctx4.fillRect(i * barW, h - barH - 20, barW - 1, barH);
+            }
+
+            // 텍스트
+            ctx4.fillStyle = '#333';
+            ctx4.font = "14px sans-serif";
+            ctx4.fillText(`누적 표본 평균 수: ${sampleCount}`, 10, 30);
+
+            // 기준선
+            ctx4.beginPath();
+            ctx4.moveTo(0, h - 20);
+            ctx4.lineTo(w, h - 20);
+            ctx4.stroke();
+        }
+
+        function updateCLT() {
+            // 시뮬레이션: 랜덤값(균등분포 등) 5개를 뽑아 평균을 냄
+            // 이것을 반복하면 정규분포가 됨
+            for (let speed = 0; speed < 10; speed++) { // 속도 조절
+                let sum = 0;
+                let n = 5;
+                for (let i = 0; i < n; i++) {
+                    sum += Math.random() * 10 - 5; // -5 ~ 5 사이 랜덤
+                }
+                let mean = sum / n;
+
+                // 히스토그램 인덱스로 변환 (-5~5 -> 0~49)
+                let idx = Math.floor((mean + 5) / 10 * 50);
+                if (idx >= 0 && idx < 50) cltData[idx]++;
+                sampleCount++;
+            }
+            drawCLT();
+
+            if (isRunning) requestAnimationFrame(updateCLT);
+        }
+
+        function toggleCLT() {
+            const btn = document.getElementById('btn-clt');
+            if (!isRunning) {
+                isRunning = true;
+                btn.textContent = "일시정지";
+                btn.style.background = "#f59e0b";
+                updateCLT();
+            } else {
+                isRunning = false;
+                btn.textContent = "데이터 수집 계속";
+                btn.style.background = "#3b82f6";
+            }
+        }
+
+        function resetCLT() {
+            isRunning = false;
+            document.getElementById('btn-clt').textContent = "데이터 수집 시작";
+            document.getElementById('btn-clt').style.background = "#3b82f6";
+            cltData.fill(0);
+            sampleCount = 0;
+            drawCLT();
+        }
+        drawCLT();
+
+        // 창 크기 조절 시 리드로우
+        window.addEventListener('resize', () => {
+            drawInteractive();
+            drawArea();
+            drawCLT();
+        });
+
+    </script>
+
+</body>
+
+</html>

@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>양측검정 vs 단측검정 비교 시뮬레이터</title>
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --secondary: #64748b;
+            --danger: #ef4444;
+            /* 기각역 색상 */
+            --safe: #3b82f6;
+            /* 채택역 색상 */
+            --bg: #f8fafc;
+            --card-bg: #ffffff;
+        }
+
+        body {
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+            line-height: 1.6;
+            background-color: var(--bg);
+            color: #1e293b;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: var(--secondary);
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 25px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .nav-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            justify-content: center;
+        }
+
+        .nav-btn {
+            padding: 12px 24px;
+            border: 2px solid #e2e8f0;
+            background: white;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 1rem;
+            transition: all 0.2s;
+            flex: 1;
+            max-width: 200px;
+        }
+
+        .nav-btn.active {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        .nav-btn:hover:not(.active) {
+            background: #f1f5f9;
+        }
+
+        canvas {
+            width: 100%;
+            height: 350px;
+            background: #f8fafc;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .controls {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f1f5f9;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        input[type=range] {
+            width: 200px;
+            cursor: pointer;
+        }
+
+        .explanation-box {
+            background: #eff6ff;
+            border-left: 5px solid var(--primary);
+            padding: 15px;
+            margin-top: 15px;
+        }
+
+        .hypothesis-display {
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            font-size: 1.1rem;
+            background: #1e293b;
+            color: #fbbf24;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        .pro-tip {
+            background: #fff1f2;
+            border: 1px solid #fecdd3;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 10px;
+        }
+
+        .pro-tip h4 {
+            margin: 0 0 5px 0;
+            color: #9f1239;
+        }
+
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 10px;
+            font-size: 0.9rem;
+        }
+
+        .dot {
+            width: 12px;
+            height: 12px;
+            display: inline-block;
+            border-radius: 50%;
+            margin-right: 5px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <h1>⚖️ 양측검정 vs 단측검정 시각화</h1>
+        <p class="subtitle">"기각역(Rejection Region)을 어디에 배치할 것인가?"</p>
+
+        <div class="card">
+            <div class="nav-tabs">
+                <button class="nav-btn active" onclick="setMode('two')">양측검정 (≠)</button>
+                <button class="nav-btn" onclick="setMode('right')">단측검정 - 우측 (>)</button>
+                <button class="nav-btn" onclick="setMode('left')">단측검정 - 좌측 (<)< /button>
+            </div>
+
+            <div class="hypothesis-display" id="hypothesis-text">
+                H₀: μ = μ₀ vs H₁: μ ≠ μ₀
+            </div>
+
+            <canvas id="chartCanvas"></canvas>
+
+            <div class="legend">
+                <span><span class="dot" style="background:var(--safe)"></span>채택역 (차이 없음)</span>
+                <span><span class="dot" style="background:var(--danger)"></span>기각역 (유의미한 차이, α)</span>
+            </div>
+
+            <div class="controls">
+                <label style="font-weight:bold;">유의수준 (α): <span id="alpha-val">0.05</span> (5%)</label>
+                <input type="range" id="alpha-slider" min="0.01" max="0.20" step="0.01" value="0.05">
+            </div>
+        </div>
+
+        <div class="card">
+            <h2 id="scenario-title">분석 시나리오 및 해설</h2>
+            <div class="explanation-box" id="scenario-desc">
+                <strong>양측검정 (Two-sided Test):</strong><br>
+                방향을 모르거나 상관없을 때 사용합니다.<br>
+                예: "남자 농구선수 키가 일반인과 <strong>다른가?</strong> (크거나 작거나)"
+            </div>
+
+            <div class="pro-tip">
+                <h4>👨‍🏫 강사님의 One Point Lesson</h4>
+                <p id="instructor-note">
+                    <strong>기각역이 양쪽으로 쪼개집니다!</strong><br>
+                    α=0.05라면, 양쪽 끝에 각각 0.025(2.5%)씩 나누어 가집니다.<br>
+                    양쪽 어디로든 극단적인 값이 나오면 기각하지만, 한쪽 방향으로만 봤을 때의 기준(임계값)은 단측검정보다 더 엄격합니다(더 멀리 나가야 함).
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- 수학 함수 ---
+        function gaussian(x) {
+            return (1 / Math.sqrt(2 * Math.PI)) * Math.exp(-0.5 * x * x);
+        }
+
+        // 역정규분포 함수 (확률 p를 주면 해당 Z값을 반환) - 근사치 계산 (Binary Search)
+        function getZFromP(p) {
+            let min = -6, max = 6, mid = 0;
+            for (let i = 0; i < 50; i++) {
+                mid = (min + max) / 2;
+                if (standardNormalCDF(mid) < p) min = mid;
+                else max = mid;
+            }
+            return mid;
+        }
+
+        function standardNormalCDF(x) {
+            const t = 1 / (1 + 0.2316419 * Math.abs(x));
+            const d = 0.3989423 * Math.exp(-x * x / 2);
+            let prob = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
+            if (x > 0) prob = 1 - prob;
+            return prob;
+        }
+
+        // --- 상태 변수 ---
+        let currentMode = 'two'; // 'two', 'right', 'left'
+        let alpha = 0.05;
+        const canvas = document.getElementById('chartCanvas');
+        const ctx = canvas.getContext('2d');
+        const slider = document.getElementById('alpha-slider');
+        const alphaDisplay = document.getElementById('alpha-val');
+
+        // --- 그리기 로직 ---
+        function draw() {
+            // 캔버스 초기화
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+            const w = canvas.width;
+            const h = canvas.height;
+            const padding = 40;
+
+            ctx.clearRect(0, 0, w, h);
+
+            // 좌표 매핑 (-4 ~ 4)
+            const mapX = (z) => (z + 4) / 8 * w;
+            const mapY = (y) => h - padding - (y * (h - padding * 2) * 2.2); // 2.2는 높이 조절용
+
+            // 1. 임계값(Critical Value) 계산
+            let zCritLeft = null;
+            let zCritRight = null;
+
+            if (currentMode === 'two') {
+                // 양측: alpha를 절반씩 나눔
+                zCritLeft = getZFromP(alpha / 2);      // 예: 0.025 지점 (-1.96)
+                zCritRight = getZFromP(1 - alpha / 2); // 예: 0.975 지점 (+1.96)
+            } else if (currentMode === 'right') {
+                // 우측 단측: 오른쪽 끝에 alpha 몰빵
+                zCritRight = getZFromP(1 - alpha);     // 예: 0.95 지점 (+1.645)
+            } else {
+                // 좌측 단측: 왼쪽 끝에 alpha 몰빵
+                zCritLeft = getZFromP(alpha);          // 예: 0.05 지점 (-1.645)
+            }
+
+            // 2. 그래프 그리기
+            ctx.lineWidth = 2;
+
+            // 전체 곡선 경로 생성
+            let points = [];
+            for (let z = -4; z <= 4; z += 0.05) {
+                points.push({ x: mapX(z), y: mapY(gaussian(z)), z: z });
+            }
+
+            // 기각역 채우기 (붉은색)
+            ctx.fillStyle = 'rgba(239, 68, 68, 0.4)'; // --danger color transparent
+
+            // 왼쪽 기각역
+            if (zCritLeft !== null) {
+                ctx.beginPath();
+                ctx.moveTo(mapX(-4), mapY(0));
+                for (let p of points) {
+                    if (p.z <= zCritLeft) ctx.lineTo(p.x, p.y);
+                }
+                ctx.lineTo(mapX(zCritLeft), mapY(0));
+                ctx.fill();
+            }
+
+            // 오른쪽 기각역
+            if (zCritRight !== null) {
+                ctx.beginPath();
+                ctx.moveTo(mapX(zCritRight), mapY(0));
+                for (let p of points) {
+                    if (p.z >= zCritRight) ctx.lineTo(p.x, p.y);
+                }
+                ctx.lineTo(mapX(4), mapY(0));
+                ctx.fill();
+            }
+
+            // 곡선 외곽선 그리기
+            ctx.beginPath();
+            ctx.strokeStyle = '#333';
+            points.forEach((p, i) => {
+                if (i === 0) ctx.moveTo(p.x, p.y);
+                else ctx.lineTo(p.x, p.y);
+            });
+            ctx.stroke();
+
+            // X축
+            ctx.beginPath();
+            ctx.moveTo(0, mapY(0));
+            ctx.lineTo(w, mapY(0));
+            ctx.strokeStyle = '#64748b';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+            // 3. 텍스트 및 라벨 표시
+            ctx.textAlign = 'center';
+            ctx.font = '14px sans-serif';
+            ctx.fillStyle = '#1e293b';
+
+            // 임계값 텍스트 표시
+            ctx.fillStyle = '#ef4444';
+            ctx.font = 'bold 14px sans-serif';
+
+            if (zCritLeft !== null) {
+                let x = mapX(zCritLeft);
+                ctx.beginPath(); ctx.moveTo(x, mapY(0)); ctx.lineTo(x, mapY(gaussian(zCritLeft)));
+                ctx.strokeStyle = '#ef4444'; ctx.setLineDash([4, 4]); ctx.stroke(); ctx.setLineDash([]);
+                ctx.fillText(`Z = ${zCritLeft.toFixed(2)}`, x, mapY(0) + 20);
+
+                // 면적 표시
+                let area = (currentMode === 'two') ? alpha / 2 : alpha;
+                ctx.fillText(`α = ${(area * 100).toFixed(1)}%`, mapX(-3.5), mapY(0.1));
+            }
+
+            if (zCritRight !== null) {
+                let x = mapX(zCritRight);
+                ctx.beginPath(); ctx.moveTo(x, mapY(0)); ctx.lineTo(x, mapY(gaussian(zCritRight)));
+                ctx.strokeStyle = '#ef4444'; ctx.setLineDash([4, 4]); ctx.stroke(); ctx.setLineDash([]);
+                ctx.fillText(`Z = ${zCritRight.toFixed(2)}`, x, mapY(0) + 20);
+
+                // 면적 표시
+                let area = (currentMode === 'two') ? alpha / 2 : alpha;
+                ctx.fillText(`α = ${(area * 100).toFixed(1)}%`, mapX(3.5), mapY(0.1));
+            }
+
+            // 중앙값
+            ctx.fillStyle = '#64748b';
+            ctx.fillText('0', mapX(0), mapY(0) + 20);
+        }
+
+
+        // --- 인터랙션 로직 ---
+        function setMode(mode) {
+            currentMode = mode;
+
+            // 버튼 스타일 업데이트
+            document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+
+            updateText();
+            draw();
+        }
+
+        function updateText() {
+            const hypoText = document.getElementById('hypothesis-text');
+            const scTitle = document.getElementById('scenario-title');
+            const scDesc = document.getElementById('scenario-desc');
+            const instNote = document.getElementById('instructor-note');
+
+            if (currentMode === 'two') {
+                hypoText.innerHTML = "H₀: μ = μ₀  vs  H₁: μ ≠ μ₀";
+                scDesc.innerHTML = `<strong>🏀 시나리오:</strong> "농구선수 평균 키가 일반인(175cm)과 <strong>다른가?</strong>"<br>크든 작든 다르기만 하면 관심이 있습니다.`;
+                instNote.innerHTML = `<strong>기각역이 양쪽으로 분산됨!</strong><br>α=0.05일 때, 양쪽 끝 2.5%씩 나뉩니다. 임계값은 약 ±1.96입니다.<br>양쪽 방향 모두를 감시하지만, 한쪽만 볼 때보다는 기준이 더 깐깐합니다.`;
+            } else if (currentMode === 'right') {
+                hypoText.innerHTML = "H₀: μ ≤ μ₀  vs  H₁: μ > μ₀";
+                scDesc.innerHTML = `<strong>🏀 시나리오:</strong> "농구선수 평균 키가 일반인보다 <strong>큰가?</strong>"<br>작은 경우는 관심 없고, 오직 '더 큰지'만 확인합니다.`;
+                instNote.innerHTML = `<strong>기각역이 오른쪽(큰 쪽)에 집중됨!</strong><br>α=0.05가 오른쪽에 전부 모입니다. 임계값은 약 +1.645입니다.<br>양측검정(1.96)보다 기준이 낮아져서, <strong>'크다'는 것을 더 쉽게(민감하게) 발견</strong>할 수 있습니다.`;
+            } else {
+                hypoText.innerHTML = "H₀: p ≥ 0.5  vs  H₁: p < 0.5";
+                scDesc.innerHTML = `<strong>🪙 시나리오:</strong> "이 동전은 뒷면이 더 잘 나오나? (앞면 확률이 0.5보다 <strong>작은가?</strong>)"<br>앞면이 많이 나오는 경우는 무시하고, 적게 나오는 경우만 따집니다.`;
+                instNote.innerHTML = `<strong>기각역이 왼쪽(작은 쪽)에 집중됨!</strong><br>α=0.05가 왼쪽에 전부 모입니다. 임계값은 약 -1.645입니다.<br>특정 방향(작다)에 대해서는 검정력이 높아지지만, 반대 방향의 변화는 아예 감지하지 못합니다.`;
+            }
+        }
+
+        slider.addEventListener('input', (e) => {
+            alpha = parseFloat(e.target.value);
+            alphaDisplay.textContent = alpha.toFixed(2);
+            draw();
+            updateText(); // 텍스트 내의 수치 등은 고정이지만 리프레시 차원
+        });
+
+        // 초기화
+        window.addEventListener('resize', draw);
+        draw();
+
+    </script>
+
+</body>
+
+</html>

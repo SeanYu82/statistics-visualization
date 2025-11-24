@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>이항분포 시뮬레이터</title>
+    <style>
+        :root {
+            --primary: #8b5cf6;
+            /* 보라색 계열 */
+            --success: #10b981;
+            /* 성공 (초록) */
+            --fail: #94a3b8;
+            /* 실패 (회색) */
+            --bg: #f8fafc;
+            --text: #1e293b;
+            --card-bg: #ffffff;
+        }
+
+        body {
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+            line-height: 1.6;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        h2 {
+            border-bottom: 2px solid var(--primary);
+            padding-bottom: 10px;
+            margin-top: 0;
+            color: var(--primary);
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 25px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        canvas {
+            width: 100%;
+            height: 300px;
+            background: #f1f5f9;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+
+        /* 코인 그리드 스타일 */
+        #coinGrid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(30px, 1fr));
+            gap: 10px;
+            margin: 20px 0;
+            min-height: 100px;
+        }
+
+        .coin {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background-color: #cbd5e1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+            color: white;
+            transition: all 0.3s ease;
+        }
+
+        .coin.success {
+            background-color: var(--success);
+            transform: scale(1.1);
+        }
+
+        .coin.fail {
+            background-color: var(--fail);
+            transform: scale(0.9);
+            opacity: 0.6;
+        }
+
+        .controls {
+            display: flex;
+            gap: 20px;
+            background: #f1f5f9;
+            padding: 20px;
+            border-radius: 8px;
+            flex-wrap: wrap;
+        }
+
+        .control-group {
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .control-group label {
+            font-weight: bold;
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .control-group input[type=range] {
+            width: 100%;
+            cursor: pointer;
+        }
+
+        .val-display {
+            font-weight: bold;
+            color: var(--primary);
+        }
+
+        button {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 1rem;
+            margin-top: 10px;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background: #7c3aed;
+        }
+
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            background: #ede9fe;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-val {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: var(--primary);
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <h1>🎲 이항분포 시뮬레이터 (Binomial Distribution)</h1>
+        <p style="text-align: center; color: #64748b;">
+            베르누이 시행(성공/실패)을 n번 반복했을 때, 성공 횟수(x)의 분포를 확인합니다.
+        </p>
+
+        <section class="card">
+            <h2>1. 베르누이 시행 직접 해보기</h2>
+            <p>
+                성공 확률이 <strong>p</strong>인 시행을 <strong>n</strong>번 반복합니다.<br>
+                아래 버튼을 눌러 실제로 어떤 결과가 나오는지 확인해보세요.
+            </p>
+
+            <div class="controls">
+                <div class="control-group">
+                    <label>시행 횟수 (n): <span id="val-n-sim" class="val-display">10</span></label>
+                    <input type="range" id="range-n" min="1" max="50" value="10">
+                </div>
+                <div class="control-group">
+                    <label>성공 확률 (p): <span id="val-p-sim" class="val-display">0.5</span></label>
+                    <input type="range" id="range-p" min="0.01" max="0.99" step="0.01" value="0.5">
+                </div>
+            </div>
+
+            <div style="text-align: center;">
+                <button onclick="runSimulation()">🎲 시행 시작 (Toss!)</button>
+            </div>
+
+            <div id="coinGrid"></div>
+
+            <div class="stats">
+                <div class="stat-item">총 시행<br><span id="res-total" class="stat-val">0</span></div>
+                <div class="stat-item">성공(x)<br><span id="res-success" class="stat-val"
+                        style="color: var(--success)">0</span></div>
+                <div class="stat-item">실패<br><span id="res-fail" class="stat-val" style="color: var(--fail)">0</span>
+                </div>
+            </div>
+        </section>
+
+        <section class="card">
+            <h2>2. 이론적 확률분포 (성공 횟수의 도수분포)</h2>
+            <p>
+                위와 같은 시행을 무한히 반복한다고 가정했을 때, 성공 횟수별 확률입니다.<br>
+                <strong>n</strong>이 커지거나 <strong>p</strong>가 변할 때 그래프의 모양(대칭성, 쏠림)을 관찰하세요.
+            </p>
+            <canvas id="distCanvas"></canvas>
+            <p style="text-align: center; font-size: 0.9rem;">
+                * 파란 막대: 이항분포 확률 P(X=k)<br>
+                * 붉은 선: 근사 정규분포 곡선 (n이 클수록 일치함)
+            </p>
+            <div class="stats" style="background: #f1f5f9;">
+                <div class="stat-item">기대값 (E = np)<br><span id="calc-mean" class="stat-val">5.0</span></div>
+                <div class="stat-item">분산 (V = npq)<br><span id="calc-var" class="stat-val">2.5</span></div>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        // --- 유틸리티 함수 ---
+        // 팩토리얼 없이 조합(nCr) 계산 (안정성 위함)
+        function nCr(n, r) {
+            if (r < 0 || r > n) return 0;
+            if (r === 0 || r === n) return 1;
+            if (r > n / 2) r = n - r;
+            let res = 1;
+            for (let i = 1; i <= r; i++) {
+                res = res * (n - i + 1) / i;
+            }
+            return res;
+        }
+
+        // 이항확률 계산 P(X=k)
+        function binomialProb(n, p, k) {
+            return nCr(n, k) * Math.pow(p, k) * Math.pow(1 - p, n - k);
+        }
+
+        // 정규분포 함수 (근사 곡선용)
+        function gaussian(x, mu, sigma) {
+            return (1 / (sigma * Math.sqrt(2 * Math.PI))) * Math.exp(-0.5 * Math.pow((x - mu) / sigma, 2));
+        }
+
+        // --- DOM 요소 및 변수 ---
+        const rangeN = document.getElementById('range-n');
+        const rangeP = document.getElementById('range-p');
+        const valN = document.getElementById('val-n-sim');
+        const valP = document.getElementById('val-p-sim');
+        const coinGrid = document.getElementById('coinGrid');
+
+        const resTotal = document.getElementById('res-total');
+        const resSuccess = document.getElementById('res-success');
+        const resFail = document.getElementById('res-fail');
+
+        const cvs = document.getElementById('distCanvas');
+        const ctx = cvs.getContext('2d');
+
+        const calcMean = document.getElementById('calc-mean');
+        const calcVar = document.getElementById('calc-var');
+
+        // --- 1. 시행 시뮬레이션 로직 ---
+        function runSimulation() {
+            const n = parseInt(rangeN.value);
+            const p = parseFloat(rangeP.value);
+
+            coinGrid.innerHTML = ''; // 초기화
+            let successCount = 0;
+
+            // 동전(원) 생성 및 애니메이션
+            for (let i = 0; i < n; i++) {
+                const coin = document.createElement('div');
+                coin.className = 'coin';
+                coin.innerText = '?';
+                coinGrid.appendChild(coin);
+
+                // 순차적 애니메이션 효과
+                setTimeout(() => {
+                    const isSuccess = Math.random() < p;
+                    if (isSuccess) {
+                        coin.classList.add('success');
+                        coin.innerText = 'O';
+                        successCount++;
+                    } else {
+                        coin.classList.add('fail');
+                        coin.innerText = 'X';
+                    }
+
+                    // 마지막 코인일 때 결과 업데이트
+                    if (i === n - 1) {
+                        resTotal.innerText = n;
+                        resSuccess.innerText = successCount;
+                        resFail.innerText = n - successCount;
+                    }
+                }, i * 50); // 0.05초 간격으로 결과 공개
+            }
+        }
+
+        // --- 2. 그래프 그리기 로직 ---
+        function drawDistribution() {
+            const n = parseInt(rangeN.value);
+            const p = parseFloat(rangeP.value);
+
+            // UI 값 업데이트
+            valN.innerText = n;
+            valP.innerText = p;
+
+            // 통계량 계산
+            const mean = n * p;
+            const variance = n * p * (1 - p);
+            const stdDev = Math.sqrt(variance);
+
+            calcMean.innerText = mean.toFixed(2);
+            calcVar.innerText = variance.toFixed(2);
+
+            // 캔버스 초기화
+            cvs.width = cvs.offsetWidth;
+            cvs.height = cvs.offsetHeight;
+            const w = cvs.width;
+            const h = cvs.height;
+            ctx.clearRect(0, 0, w, h);
+
+            // 확률값 미리 계산 (최대 확률값을 찾아 Y축 스케일링용)
+            let probs = [];
+            let maxProb = 0;
+            for (let k = 0; k <= n; k++) {
+                let prob = binomialProb(n, p, k);
+                probs.push(prob);
+                if (prob > maxProb) maxProb = prob;
+            }
+
+            // 여백 및 스케일링
+            const padding = 40;
+            const graphW = w - padding * 2;
+            const graphH = h - padding * 2;
+            const barWidth = (graphW / (n + 1)) * 0.8;
+            const stepX = graphW / (n + 1);
+
+            // 막대 그래프 그리기 (이항분포)
+            ctx.fillStyle = '#6366f1'; // Primary color
+
+            for (let k = 0; k <= n; k++) {
+                let prob = probs[k];
+                let barH = (prob / (maxProb * 1.1)) * graphH; // 1.1은 여유공간
+
+                let x = padding + k * stepX + (stepX - barWidth) / 2;
+                let y = h - padding - barH;
+
+                // 막대
+                ctx.fillRect(x, y, barWidth, barH);
+
+                // X축 레이블 (너무 많으면 생략)
+                if (n <= 20 || k % 5 === 0) {
+                    ctx.fillStyle = '#333';
+                    ctx.font = '12px sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(k, x + barWidth / 2, h - padding + 15);
+                    ctx.fillStyle = '#6366f1'; // 다시 막대 색으로
+                }
+            }
+
+            // 정규분포 근사 곡선 그리기 (Overlay)
+            if (n >= 5) { // n이 너무 작으면 근사가 의미 없음
+                ctx.beginPath();
+                ctx.strokeStyle = '#ef4444'; // 붉은색
+                ctx.lineWidth = 2;
+
+                // 연속적인 곡선을 위해 촘촘하게 그림
+                for (let cx = 0; cx <= n; cx += 0.1) {
+                    // X좌표 변환: 막대의 중심점 기준
+                    let plotX = padding + cx * stepX + stepX / 2;
+
+                    // 정규분포 확률밀도함수 값
+                    let pdf = gaussian(cx, mean, stdDev);
+
+                    // Y좌표 변환: 막대그래프의 면적(=1)과 PDF 면적(=1) 스케일 맞추기
+                    // 이산확률 P(X=k)는 연속확률분포에서 구간 폭이 1일 때의 면적과 유사
+                    // 스케일링 팩터 = canvasHeight / maxProb * pdf
+                    // 하지만 시각적 매칭을 위해 maxProb 기준으로 맞춤
+
+                    // 근사 높이 계산: PDF값에 비례하되, 시각적 매칭을 위해 조정
+                    // 가장 높은 점(mean)에서의 PDF값과 이항분포 최대확률을 비교 보정
+                    let peakPDF = gaussian(mean, mean, stdDev);
+                    let scaleRatio = maxProb / peakPDF;
+
+                    let plotY = h - padding - (pdf * scaleRatio / (maxProb * 1.1)) * graphH;
+
+                    if (cx === 0) ctx.moveTo(plotX, plotY);
+                    else ctx.lineTo(plotX, plotY);
+                }
+                ctx.stroke();
+            }
+
+            // 축 그리기
+            ctx.beginPath();
+            ctx.moveTo(padding, h - padding);
+            ctx.lineTo(w - padding, h - padding);
+            ctx.strokeStyle = '#333';
+            ctx.stroke();
+        }
+
+        // 이벤트 리스너
+        rangeN.addEventListener('input', drawDistribution);
+        rangeP.addEventListener('input', drawDistribution);
+
+        // 초기 실행
+        drawDistribution();
+        // 시뮬레이션용 그리드에 초기값 표시
+        coinGrid.innerHTML = '<div style="color:#888; text-align:center; grid-column:1/-1;">위 버튼을 눌러보세요!</div>';
+
+        // 리사이즈 대응
+        window.addEventListener('resize', drawDistribution);
+
+    </script>
+
+</body>
+
+</html>
