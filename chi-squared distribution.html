@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>카이제곱분포 시뮬레이션</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: 'Suit', 'Pretendard', sans-serif; background-color: #f4f4f9; display: flex; flex-direction: column; align-items: center; padding: 20px; margin: 0; }
+        .container { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); max-width: 800px; width: 100%; }
+        h2 { text-align: center; color: #333; margin-bottom: 10px; }
+        .description { background: #eef2f5; padding: 15px; border-radius: 8px; margin-bottom: 20px; line-height: 1.6; color: #555; font-size: 0.95rem; }
+        .highlight { color: #d63384; font-weight: bold; }
+        .controls { display: flex; align-items: center; justify-content: center; gap: 20px; margin-bottom: 20px; background: #fafafa; padding: 15px; border-radius: 8px; border: 1px solid #ddd; }
+        label { font-weight: bold; font-size: 1.1rem; }
+        input[type=range] { width: 200px; cursor: pointer; }
+        button { background-color: #4CAF50; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-size: 1rem; transition: background 0.2s; }
+        button:hover { background-color: #45a049; }
+        .chart-container { position: relative; height: 400px; width: 100%; }
+        .formula-box { margin-top: 20px; text-align: center; font-size: 0.9rem; color: #777; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>📊 카이제곱분포 생성 원리 시각화</h2>
+    
+    <div class="description">
+        <p><strong>카이제곱분포($\chi^2$)의 정의:</strong> 표준정규분포 $N(0,1)$를 따르는 서로 독립인 변수들을 제곱하여 더한 값의 분포입니다.</p>
+        <ul>
+            <li>현재 설정된 자유도(더하는 개수): <span id="displayDf" class="highlight">2</span>개 ($n$)</li>
+            <li>과정: $Z_1, \dots, Z_n$ 뽑기 → 각각 제곱 ($Z_i^2$) → 합계 구하기 ($Y = \sum Z_i^2$)</li>
+            <li>결과: 아래 그래프에서 <strong>파란 막대(시뮬레이션)</strong>가 <strong>빨간 선(이론적 확률밀도함수)</strong>에 가까워지는 것을 확인하세요.</li>
+        </ul>
+    </div>
+
+    <div class="controls">
+        <label for="dfRange">자유도 (n): <span id="dfValue">2</span></label>
+        <input type="range" id="dfRange" min="1" max="10" step="1" value="2">
+        <button onclick="resetSimulation()">초기화 & 다시 시작</button>
+    </div>
+
+    <div class="chart-container">
+        <canvas id="chiChart"></canvas>
+    </div>
+
+    <div class="formula-box">
+        $\sum_{i=1}^n X_i^2 \sim \chi^2(n)$ <br>
+        자유도(n)가 커질수록 분포가 오른쪽으로 이동하며 종 모양(정규분포 형태)에 가까워집니다.
+    </div>
+</div>
+
+<script>
+    // --- 설정 변수 ---
+    let df = 2; // 자유도 (Degrees of Freedom)
+    let simulationSpeed = 100; // 프레임당 생성할 샘플 수
+    let samples = [];
+    let animationId;
+    let chart;
+    const maxVal = 20; // X축 최대값
+    const binSize = 0.5; // 히스토그램 구간 크기
+    
+    // --- 유틸리티 함수: 표준정규분포 난수 생성 (Box-Muller Transform) ---
+    function randn_bm() {
+        let u = 0, v = 0;
+        while(u === 0) u = Math.random(); 
+        while(v === 0) v = Math.random();
+        return Math.sqrt( -2.0 * Math.log( u ) ) * Math.cos( 2.0 * Math.PI * v );
+    }
+
+    // --- 유틸리티 함수: 감마 함수 근사 (PDF 계산용) ---
+    function gamma(n) {
+        // 간단한 팩토리얼 기반 근사 (정수 및 반정수 지원을 위한 Lanczos 근사 간소화)
+        // 시각화 목적이므로 정밀도는 적당히 타협
+        const g = 7;
+        const p = [0.99999999999980993, 676.5203681218851, -1259.1392167224028, 771.32342877765313, -176.61502916214059, 12.507343278686905, -0.13857109526572012, 9.9843695780195716e-6, 1.5056327351493116e-7];
+        if (n < 0.5) return Math.PI / (Math.sin(Math.PI * n) * gamma(1 - n));
+        n -= 1;
+        let x = p[0];
+        for (let i = 1; i < g + 2; i++) x += p[i] / (n + i);
+        let t = n + g + 0.5;
+        return Math.sqrt(2 * Math.PI) * Math.pow(t, (n + 0.5)) * Math.exp(-t) * x;
+    }
+
+    // --- 카이제곱분포 PDF 계산 함수 ---
+    function chiSquarePDF(x, k) {
+        if (x <= 0) return 0;
+        const numerator = Math.pow(x, (k / 2) - 1) * Math.exp(-x / 2);
+        const denominator = Math.pow(2, k / 2) * gamma(k / 2);
+        return numerator / denominator;
+    }
+
+    // --- 차트 초기화 ---
+    function initChart() {
+        const ctx = document.getElementById('chiChart').getContext('2d');
+        
+        // X축 라벨 생성
+        const labels = [];
+        for (let i = 0; i <= maxVal; i += binSize) {
+            labels.push(i.toFixed(1));
+        }
+
+        chart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: '이론적 분포 (PDF)',
+                        data: [],
+                        type: 'line',
+                        borderColor: 'rgba(255, 99, 132, 1)',
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        fill: false,
+                        tension: 0.4,
+                        yAxisID: 'y'
+                    },
+                    {
+                        label: '시뮬레이션 결과 (Histogram)',
+                        data: [],
+                        backgroundColor: 'rgba(54, 162, 235, 0.6)',
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        borderWidth: 1,
+                        barPercentage: 1.0,
+                        categoryPercentage: 1.0,
+                        yAxisID: 'y'
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                scales: {
+                    x: { title: { display: true, text: '값 (Random Variable Value)' } },
+                    y: { title: { display: true, text: '확률 밀도 (Density)' }, beginAtZero: true, max: 0.6 } // Y축 고정
+                },
+                animation: false // 실시간 업데이트를 위해 차트 자체 애니메이션 끔
+            }
+        });
+    }
+
+    // --- 이론적 PDF 라인 업데이트 ---
+    function updateTheoreticalLine() {
+        const theoreticalData = [];
+        for (let i = 0; i <= maxVal; i += binSize) {
+            // 구간의 중간값(midpoint)을 사용하여 PDF 계산
+            theoreticalData.push(chiSquarePDF(i + binSize/2, df));
+        }
+        chart.data.datasets[0].data = theoreticalData;
+        
+        // 자유도에 따라 Y축 스케일 조정 (자유도 1일 때 값이 매우 커지므로)
+        if (df === 1) chart.options.scales.y.max = 1.0;
+        else if (df === 2) chart.options.scales.y.max = 0.6;
+        else chart.options.scales.y.max = 0.4;
+    }
+
+    // --- 시뮬레이션 루프 ---
+    function runSimulation() {
+        // 한 번에 simulationSpeed 만큼의 샘플을 추가 (성능 최적화)
+        for (let j = 0; j < simulationSpeed; j++) {
+            let sumSq = 0;
+            // 자유도(df) 개수만큼 표준정규분포에서 뽑아서 제곱합 계산
+            for (let i = 0; i < df; i++) {
+                let z = randn_bm();
+                sumSq += z * z;
+            }
+            samples.push(sumSq);
+        }
+
+        // 히스토그램 데이터 계산
+        const bins = new Array(Math.ceil(maxVal / binSize) + 1).fill(0);
+        let count = 0;
+        
+        for (let val of samples) {
+            if (val < maxVal) {
+                const binIndex = Math.floor(val / binSize);
+                bins[binIndex]++;
+                count++;
+            }
+        }
+
+        // 빈도수를 확률밀도(Density)로 변환: (빈도 / 총개수) / 구간너비
+        const densityData = bins.map(b => (b / count) / binSize);
+
+        chart.data.datasets[1].data = densityData;
+        chart.update('none'); // 애니메이션 없이 즉시 렌더링
+
+        animationId = requestAnimationFrame(runSimulation);
+    }
+
+    // --- 제어 함수 ---
+    function resetSimulation() {
+        cancelAnimationFrame(animationId);
+        samples = [];
+        updateTheoreticalLine();
+        chart.update();
+        runSimulation();
+    }
+
+    // --- 이벤트 리스너 ---
+    const slider = document.getElementById('dfRange');
+    const dfLabel = document.getElementById('dfValue');
+    const dfDisplay = document.getElementById('displayDf');
+
+    slider.addEventListener('input', function() {
+        df = parseInt(this.value);
+        dfLabel.textContent = df;
+        dfDisplay.textContent = df;
+        resetSimulation();
+    });
+
+    // --- 초기 실행 ---
+    initChart();
+    resetSimulation();
+
+</script>
+
+</body>
+</html>
