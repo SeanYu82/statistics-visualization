@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Bagging (Bootstrap Aggregating) Visual Explanation</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #111827;
+      --accent: #38bdf8;
+      --accent-soft: rgba(56, 189, 248, 0.18);
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --class-a: #4f46e5;
+      --class-b: #f97316;
+      --card-border: #1f2937;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top, #020617 0, #020617 40%, #000 100%);
+      color: var(--text);
+      display: flex;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .container {
+      max-width: 1100px;
+      width: 100%;
+      background: linear-gradient(135deg, #020617 0%, #030712 40%, #020617 100%);
+      border-radius: 24px;
+      padding: 24px 24px 32px;
+      box-shadow: 0 25px 60px rgba(0,0,0,0.7);
+      border: 1px solid rgba(148, 163, 184, 0.2);
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    .title-block h1 {
+      font-size: 1.6rem;
+      margin: 0 0 4px;
+      letter-spacing: 0.03em;
+    }
+
+    .title-block p {
+      margin: 0;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+
+    .pill {
+      font-size: 0.75rem;
+      border-radius: 999px;
+      padding: 4px 10px;
+      border: 1px solid rgba(148, 163, 184, 0.5);
+      color: var(--muted);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+
+    .pill-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      background: var(--accent);
+      box-shadow: 0 0 10px var(--accent);
+    }
+
+    .panel {
+      background: radial-gradient(circle at top left, #0b1120 0, #020617 55%, #020617 100%);
+      border-radius: 18px;
+      padding: 18px 18px 20px;
+      border: 1px solid rgba(55, 65, 81, 0.9);
+      box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.9);
+    }
+
+    .controls {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .btn-group {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      border-radius: 999px;
+      border: none;
+      padding: 7px 14px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      letter-spacing: 0.02em;
+    }
+
+    #play-btn {
+      background: linear-gradient(135deg, #38bdf8, #22c55e);
+      color: #0b1120;
+      font-weight: 600;
+      box-shadow: 0 12px 30px rgba(34, 197, 94, 0.45);
+    }
+
+    #reset-btn {
+      background: rgba(15, 23, 42, 0.9);
+      color: var(--muted);
+      border: 1px solid rgba(55, 65, 81, 0.9);
+    }
+
+    button:active {
+      transform: translateY(1px);
+      box-shadow: none;
+    }
+
+    .legend {
+      display: flex;
+      gap: 14px;
+      font-size: 0.75rem;
+      color: var(--muted);
+      flex-wrap: wrap;
+    }
+
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .legend-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 999px;
+    }
+
+    .legend-dot.a { background: var(--class-a); }
+    .legend-dot.b { background: var(--class-b); }
+    .legend-dot.test {
+      border: 2px dashed var(--accent);
+      background: transparent;
+    }
+
+    .viz-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.95fr);
+      gap: 14px;
+    }
+
+    .block-title {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    .orig-row, .bootstrap-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 6px;
+    }
+
+    .row-label {
+      width: 120px;
+      font-size: 0.75rem;
+      color: var(--muted);
+      text-align: right;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+    }
+
+    .dots {
+      display: flex;
+      gap: 6px;
+      flex-wrap: nowrap;
+    }
+
+    .dot {
+      width: 20px;
+      height: 20px;
+      border-radius: 999px;
+      position: relative;
+      background: #020617;
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.6rem;
+      color: rgba(248, 250, 252, 0.9);
+      opacity: 0.9;
+      transition: transform 0.28s ease, box-shadow 0.28s ease,
+                  border-color 0.28s ease, background 0.28s ease,
+                  opacity 0.28s ease;
+      box-shadow: 0 0 0 rgba(0,0,0,0);
+    }
+
+    .dot.class-a {
+      background: radial-gradient(circle at 30% 20%, #818cf8 0, #4f46e5 40%, #312e81 100%);
+      border-color: rgba(129, 140, 248, 0.9);
+      box-shadow: 0 0 16px rgba(129, 140, 248, 0.7);
+    }
+
+    .dot.class-b {
+      background: radial-gradient(circle at 30% 20%, #fdba74 0, #f97316 40%, #9a3412 100%);
+      border-color: rgba(251, 146, 60, 0.9);
+      box-shadow: 0 0 16px rgba(251, 146, 60, 0.7);
+    }
+
+    .dot.test-point {
+      border-style: dashed;
+      border-width: 2px;
+      background: rgba(15, 23, 42, 0.7);
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    .dot.highlight {
+      animation: pulse 0.9s ease-out;
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(1); box-shadow: 0 0 0 rgba(56,189,248,0.5); }
+      50% { transform: scale(1.25); box-shadow: 0 0 22px rgba(56,189,248,0.9); }
+      100% { transform: scale(1); box-shadow: 0 0 0 rgba(56,189,248,0.0); }
+    }
+
+    .bootstrap-row .dot {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+
+    .bootstrap-row .dot.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .side-panel {
+      border-radius: 16px;
+      border: 1px solid rgba(55, 65, 81, 0.9);
+      padding: 12px 14px 14px;
+      background: radial-gradient(circle at top right,
+                  rgba(56, 189, 248, 0.12) 0, #020617 45%, #020617 100%);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .models {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .model-card {
+      border-radius: 12px;
+      border: 1px solid rgba(55, 65, 81, 0.9);
+      padding: 8px 9px 10px;
+      background: radial-gradient(circle at top left,
+                  rgba(15, 23, 42, 0.9) 0, #020617 60%, #020617 100%);
+      font-size: 0.72rem;
+    }
+
+    .model-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 4px;
+    }
+
+    .model-name {
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .model-status {
+      font-size: 0.7rem;
+      color: #fbbf24;
+    }
+
+    .vote-pill {
+      font-size: 0.7rem;
+      padding: 2px 7px;
+      border-radius: 999px;
+      border: 1px solid transparent;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .vote-a {
+      border-color: rgba(129, 140, 248, 0.9);
+      color: #c7d2fe;
+    }
+
+    .vote-b {
+      border-color: rgba(251, 146, 60, 0.9);
+      color: #fed7aa;
+    }
+
+    .vote-none {
+      border-color: rgba(55, 65, 81, 0.9);
+      color: var(--muted);
+    }
+
+    .ensemble-block {
+      margin-top: 6px;
+      border-radius: 14px;
+      background: radial-gradient(circle at left,
+                  rgba(34, 197, 94, 0.25) 0,
+                  rgba(34, 197, 94, 0.03) 40%, transparent 70%);
+      border: 1px solid rgba(22, 163, 74, 0.7);
+      padding: 9px 10px 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      font-size: 0.8rem;
+    }
+
+    .ensemble-label {
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #bbf7d0;
+    }
+
+    .ensemble-dot {
+      width: 26px;
+      height: 26px;
+      border-radius: 999px;
+      border: 2px solid rgba(34, 197, 94, 0.8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.7rem;
+      font-weight: 700;
+      color: #ecfdf5;
+      background: rgba(15, 23, 42, 0.8);
+      box-shadow: 0 0 22px rgba(34, 197, 94, 0.9);
+      opacity: 0.23;
+      transform: scale(0.7);
+      transition: opacity 0.25s ease, transform 0.25s ease, background 0.25s ease;
+    }
+
+    .ensemble-dot.active-a {
+      background: radial-gradient(circle at 30% 20%, #818cf8 0, #4f46e5 45%, #1e293b 100%);
+      border-color: #a5b4fc;
+      opacity: 1;
+      transform: scale(1);
+    }
+
+    .ensemble-dot.active-b {
+      background: radial-gradient(circle at 30% 20%, #fed7aa 0, #f97316 45%, #1e293b 100%);
+      border-color: #fed7aa;
+      opacity: 1;
+      transform: scale(1);
+    }
+
+    .explain-block {
+      margin-top: 20px;
+      font-size: 0.82rem;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .explain-block h2 {
+      font-size: 0.95rem;
+      margin: 0 0 4px;
+      color: var(--text);
+    }
+
+    .explain-block ul {
+      margin: 4px 0 0 18px;
+      padding: 0;
+    }
+
+    .explain-block li {
+      margin-bottom: 2px;
+    }
+
+    @media (max-width: 880px) {
+      .viz-grid {
+        grid-template-columns: minmax(0, 1fr);
+      }
+      .row-label {
+        width: 90px;
+        font-size: 0.7rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="title-block">
+        <h1>Bagging (Bootstrap Aggregating) Visual</h1>
+        <p>From single decision tree to an ensemble of bootstrapped trees.</p>
+      </div>
+      <div class="pill">
+        <span class="pill-dot"></span>
+        <span>Ensemble Learning · Interactive Demo</span>
+      </div>
+    </header>
+
+    <div class="panel">
+      <div class="controls">
+        <div class="btn-group">
+          <button id="play-btn">▶ Play bagging animation</button>
+          <button id="reset-btn">⟲ Reset</button>
+        </div>
+        <div class="legend">
+          <div class="legend-item">
+            <span class="legend-dot a"></span><span>Class A</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-dot b"></span><span>Class B</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-dot test"></span><span>Test sample</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="viz-grid">
+        <div>
+          <div class="block-title">Sampling with replacement (Bootstrap)</div>
+
+          <div class="orig-row">
+            <div class="row-label">Original data</div>
+            <div class="dots" id="original-dots"></div>
+            <div class="dot test-point" id="test-point" title="Test sample">?</div>
+          </div>
+
+          <div id="bootstrap-rows"></div>
+        </div>
+
+        <div class="side-panel">
+          <div class="block-title">Trees & votes</div>
+          <div class="models" id="models"></div>
+
+          <div class="ensemble-block">
+            <div>
+              <div class="ensemble-label">Ensemble vote</div>
+              <div id="ensemble-text">Waiting for trees...</div>
+            </div>
+            <div class="ensemble-dot" id="ensemble-dot">—</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <section class="explain-block">
+      <h2>Label 설명 (영문 → 한글)</h2>
+      <ul>
+        <li><strong>Original data</strong> → 원래 학습 데이터 (훈련 세트 전체)</li>
+        <li><strong>Bootstrap sample #k</strong> → 복원추출로 만든 k번째 부트스트랩 표본</li>
+        <li><strong>Tree #k vote</strong> → k번째 의사결정나무가 테스트 샘플에 대해 내린 예측(투표)</li>
+        <li><strong>Ensemble vote</strong> → 여러 트리의 투표를 합친 최종 다수결 예측</li>
+        <li><strong>Class A / Class B</strong> → 두 개의 클래스(파란색/주황색)를 의미</li>
+        <li><strong>Test sample</strong> → 레이블을 모르는 새로운 데이터 포인트</li>
+      </ul>
+      <p style="margin-top:8px;">
+        애니메이션은 배깅(Bagging)이 어떻게 여러 부트스트랩 샘플에서 트리를 학습시키고,
+        각 트리의 예측을 모아서(Test sample에 대한 투표) 최종 예측을 만드는지 시각적으로 보여 줍니다.
+        <strong>Play</strong> 버튼을 누르면<br>
+        (1) 원본 데이터에서 복원추출로 여러 표본을 뽑고,<br>
+        (2) 각 표본으로 트리를 학습해 투표를 만들며,<br>
+        (3) 마지막에 <em>Ensemble vote</em>가 다수결 결과로 활성화되는 과정을 볼 수 있습니다.
+      </p>
+    </section>
+  </div>
+
+  <script>
+    // ----- Configuration -----
+    const NUM_MODELS = 4;
+    const ANIM_BASE_DELAY = 500; // ms
+
+    // Toy dataset: 10 points, A/B labels
+    const data = [
+      { id: 1, label: "A" },
+      { id: 2, label: "A" },
+      { id: 3, label: "B" },
+      { id: 4, label: "A" },
+      { id: 5, label: "B" },
+      { id: 6, label: "A" },
+      { id: 7, label: "B" },
+      { id: 8, label: "A" },
+      { id: 9, label: "B" },
+      { id: 10, label: "A" }
+    ];
+    const NUM_POINTS = data.length;
+
+    const originalDotsContainer = document.getElementById("original-dots");
+    const bootstrapRowsContainer = document.getElementById("bootstrap-rows");
+    const modelsContainer = document.getElementById("models");
+    const ensembleDot = document.getElementById("ensemble-dot");
+    const ensembleText = document.getElementById("ensemble-text");
+    const playBtn = document.getElementById("play-btn");
+    const resetBtn = document.getElementById("reset-btn");
+    const testPoint = document.getElementById("test-point");
+
+    let isAnimating = false;
+    let modelVotes = [];
+
+    function createOriginalRow() {
+      originalDotsContainer.innerHTML = "";
+      data.forEach(point => {
+        const dot = document.createElement("div");
+        dot.classList.add("dot");
+        dot.dataset.id = point.id;
+        dot.textContent = point.id;
+        dot.classList.add(point.label === "A" ? "class-a" : "class-b");
+        originalDotsContainer.appendChild(dot);
+      });
+    }
+
+    function createBootstrapRows() {
+      bootstrapRowsContainer.innerHTML = "";
+      for (let m = 0; m < NUM_MODELS; m++) {
+        const row = document.createElement("div");
+        row.classList.add("bootstrap-row");
+
+        const label = document.createElement("div");
+        label.classList.add("row-label");
+        label.textContent = `Bootstrap sample #${m + 1}`;
+
+        const dotsWrapper = document.createElement("div");
+        dotsWrapper.classList.add("dots");
+        dotsWrapper.dataset.modelIndex = m;
+
+        // Placeholder dots
+        for (let i = 0; i < NUM_POINTS; i++) {
+          const dot = document.createElement("div");
+          dot.classList.add("dot");
+          dotsWrapper.appendChild(dot);
+        }
+
+        row.appendChild(label);
+        row.appendChild(dotsWrapper);
+        bootstrapRowsContainer.appendChild(row);
+      }
+    }
+
+    function createModelCards() {
+      modelsContainer.innerHTML = "";
+      modelVotes = new Array(NUM_MODELS).fill(null);
+      for (let m = 0; m < NUM_MODELS; m++) {
+        const card = document.createElement("div");
+        card.classList.add("model-card");
+        card.dataset.modelIndex = m;
+
+        const header = document.createElement("div");
+        header.classList.add("model-header");
+
+        const name = document.createElement("div");
+        name.classList.add("model-name");
+        name.textContent = `Tree #${m + 1}`;
+
+        const status = document.createElement("div");
+        status.classList.add("model-status");
+        status.textContent = "Waiting...";
+
+        header.appendChild(name);
+        header.appendChild(status);
+
+        const body = document.createElement("div");
+        body.innerHTML = `
+          <div>• Trained on its own bootstrap sample</div>
+          <div>• Predicts label for the test sample</div>
+          <div style="margin-top:4px;">Vote: <span class="vote-pill vote-none">–</span></div>
+        `;
+
+        card.appendChild(header);
+        card.appendChild(body);
+        modelsContainer.appendChild(card);
+      }
+    }
+
+    function resetEnsemble() {
+      ensembleDot.className = "ensemble-dot";
+      ensembleDot.textContent = "—";
+      ensembleText.textContent = "Waiting for trees...";
+      testPoint.classList.remove("class-a", "class-b", "highlight");
+      testPoint.textContent = "?";
+    }
+
+    function bootstrapSample() {
+      const sample = [];
+      for (let i = 0; i < NUM_POINTS; i++) {
+        const idx = Math.floor(Math.random() * data.length);
+        sample.push(data[idx]);
+      }
+      return sample;
+    }
+
+    function animateBootstrapRow(modelIndex, delay) {
+      const row = bootstrapRowsContainer.querySelector(
+        `.dots[data-model-index="${modelIndex}"]`
+      );
+      const dots = Array.from(row.children);
+      const sample = bootstrapSample();
+
+      sample.forEach((point, i) => {
+        const dot = dots[i];
+        setTimeout(() => {
+          dot.textContent = point.id;
+          dot.classList.add(
+            point.label === "A" ? "class-a" : "class-b",
+            "visible",
+            "highlight"
+          );
+          setTimeout(() => dot.classList.remove("highlight"), 400);
+        }, delay + i * 90);
+      });
+
+      // Majority vote for this sample
+      const numA = sample.filter(p => p.label === "A").length;
+      const vote = numA >= sample.length / 2 ? "A" : "B";
+      const voteDelay = delay + sample.length * 90 + 300;
+      setTimeout(() => {
+        updateModelVote(modelIndex, vote);
+      }, voteDelay);
+
+      return voteDelay;
+    }
+
+    function updateModelVote(modelIndex, vote) {
+      modelVotes[modelIndex] = vote;
+      const card = modelsContainer.querySelector(
+        `.model-card[data-model-index="${modelIndex}"]`
+      );
+      if (!card) return;
+
+      const statusEl = card.querySelector(".model-status");
+      const votePill = card.querySelector(".vote-pill");
+      if (!statusEl || !votePill) return;
+
+      statusEl.textContent = "Trained ✓";
+
+      votePill.classList.remove("vote-none", "vote-a", "vote-b");
+      if (vote === "A") {
+        votePill.classList.add("vote-a");
+        votePill.textContent = "Class A";
+      } else {
+        votePill.classList.add("vote-b");
+        votePill.textContent = "Class B";
+      }
+    }
+
+    function finalizeEnsemble(totalDelay) {
+      const delay = totalDelay + 300;
+      setTimeout(() => {
+        const aVotes = modelVotes.filter(v => v === "A").length;
+        const bVotes = modelVotes.filter(v => v === "B").length;
+        let final = "A";
+        if (bVotes > aVotes) final = "B";
+
+        if (final === "A") {
+          ensembleDot.classList.add("active-a");
+          ensembleDot.textContent = "A";
+          testPoint.classList.add("class-a", "highlight");
+        } else {
+          ensembleDot.classList.add("active-b");
+          ensembleDot.textContent = "B";
+          testPoint.classList.add("class-b", "highlight");
+        }
+        ensembleText.textContent = `Majority vote → Class ${final}`;
+        isAnimating = false;
+      }, delay);
+    }
+
+    function resetAll() {
+      isAnimating = false;
+      createOriginalRow();
+      createBootstrapRows();
+      createModelCards();
+      resetEnsemble();
+    }
+
+    function playAnimation() {
+      if (isAnimating) return;
+      isAnimating = true;
+      resetAll();
+
+      let currentDelay = ANIM_BASE_DELAY;
+
+      for (let m = 0; m < NUM_MODELS; m++) {
+        const voteDelay = animateBootstrapRow(m, currentDelay);
+        currentDelay = voteDelay + 280;
+      }
+
+      finalizeEnsemble(currentDelay);
+    }
+
+    playBtn.addEventListener("click", playAnimation);
+    resetBtn.addEventListener("click", resetAll);
+
+    // Initialize
+    resetAll();
+  </script>
+</body>
+</html>
